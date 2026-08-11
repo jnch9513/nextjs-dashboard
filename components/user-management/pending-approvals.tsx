@@ -1,27 +1,35 @@
 "use client"
 
 import { Check, Clock, X } from "lucide-react"
-import { toast } from "sonner"
 
-import { useUsers, type ManagedUser, type RequestType } from "@/lib/users-store"
+import {
+  ROLE_LABELS,
+  STATUS_LABELS,
+  type ManagedUser,
+  type PendingRequest,
+  type SessionUser,
+} from "@/lib/user-management/types"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
-import {
-  Tooltip,
-  TooltipContent,
-  TooltipTrigger,
-} from "@/components/ui/tooltip"
+import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip"
 
-const REQUEST_LABEL: Record<RequestType, string> = {
-  create: "Create user",
-  inactivate: "Inactivate user",
-  delete: "Delete user",
+function describeRequest(req: PendingRequest): string {
+  if (req.type === "create") return "Create user"
+  if (req.type === "delete") return "Delete user"
+  return `Change to ${req.targetStatus ? STATUS_LABELS[req.targetStatus] : "new status"}`
 }
 
-export function PendingApprovals() {
-  const { users, currentAdmin, approveRequest, rejectRequest } = useUsers()
-  const pending = users.filter((u) => u.pendingRequest)
-
+export function PendingApprovals({
+  pending,
+  session,
+  onApprove,
+  onReject,
+}: {
+  pending: ManagedUser[]
+  session: SessionUser
+  onApprove: (user: ManagedUser) => void
+  onReject: (user: ManagedUser) => void
+}) {
   if (pending.length === 0) return null
 
   return (
@@ -35,7 +43,8 @@ export function PendingApprovals() {
           </span>
         </CardTitle>
         <CardDescription>
-          Requests must be approved by an admin other than the requester.
+          Placeholder approval flow &mdash; requests must be approved by an admin other than the
+          requester.
         </CardDescription>
       </CardHeader>
       <CardContent className="space-y-3">
@@ -43,15 +52,9 @@ export function PendingApprovals() {
           <PendingRow
             key={user.id}
             user={user}
-            isOwnRequest={user.pendingRequest?.requestedById === currentAdmin.id}
-            onApprove={() => {
-              approveRequest(user.id)
-              toast.success("Request approved", { description: `${user.name} updated.` })
-            }}
-            onReject={() => {
-              rejectRequest(user.id)
-              toast("Request rejected", { description: `${user.name}'s request was rejected.` })
-            }}
+            isOwnRequest={user.pendingRequest?.requestedById === session.id}
+            onApprove={() => onApprove(user)}
+            onReject={() => onReject(user)}
           />
         ))}
       </CardContent>
@@ -77,24 +80,24 @@ function PendingRow({
       <div className="min-w-0">
         <div className="flex items-center gap-2">
           <span className="rounded bg-secondary px-2 py-0.5 text-xs font-medium text-secondary-foreground">
-            {REQUEST_LABEL[req.type]}
+            {describeRequest(req)}
           </span>
-          <span className="truncate font-medium">{user.name}</span>
+          <span className="truncate font-medium">{user.fullName}</span>
         </div>
         <p className="mt-1 truncate text-sm text-muted-foreground">
-          {user.email} &middot; {user.role} &middot; requested by {req.requestedByName}
+          @{user.username} &middot; {ROLE_LABELS[user.roleCode]}
+          {user.participantCode ? ` · ${user.participantCode}` : ""} &middot; requested by{" "}
+          {req.requestedByName}
         </p>
       </div>
       <div className="flex shrink-0 items-center gap-2">
         {isOwnRequest ? (
           <Tooltip>
-            <TooltipTrigger
-              render={<span tabIndex={0} className="text-xs text-muted-foreground" />}
-            >
+            <TooltipTrigger render={<span tabIndex={0} className="text-xs text-muted-foreground" />}>
               Awaiting another admin
             </TooltipTrigger>
             <TooltipContent>
-              You can&apos;t approve your own request. Switch admin to approve.
+              You can&apos;t approve your own request. Switch acting-as user to approve.
             </TooltipContent>
           </Tooltip>
         ) : (

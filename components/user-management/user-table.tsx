@@ -1,13 +1,19 @@
 "use client"
 
-import { useState } from "react"
-import { MoreHorizontal, Search, UserCheck, UserMinus, UserX } from "lucide-react"
-import { toast } from "sonner"
+import { CircleCheck, Lock, LockKeyhole, MoreHorizontal, PauseCircle, Trash2 } from "lucide-react"
 
-import { useUsers, type ManagedUser } from "@/lib/users-store"
+import {
+  ROLE_LABELS,
+  STATUS_LABELS,
+  canManageUsers,
+  isParticipantScoped,
+  type ManagedUser,
+  type SessionUser,
+  type StatusCode,
+} from "@/lib/user-management/types"
 import { Avatar, AvatarFallback } from "@/components/ui/avatar"
 import { Button } from "@/components/ui/button"
-import { Input } from "@/components/ui/input"
+import { Skeleton } from "@/components/ui/skeleton"
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -42,157 +48,169 @@ function formatDate(iso: string) {
   })
 }
 
-export function UserTable() {
-  const { users, requestInactivate, requestDelete, reactivateUser } = useUsers()
-  const [query, setQuery] = useState("")
+// Status transitions offered as row actions (each routes through approval).
+const STATUS_ACTIONS: { status: StatusCode; label: string; icon: typeof Lock }[] = [
+  { status: "A", label: "Set active", icon: CircleCheck },
+  { status: "TL", label: "Temp lock", icon: Lock },
+  { status: "PL", label: "Perm lock", icon: LockKeyhole },
+  { status: "S", label: "Suspend", icon: PauseCircle },
+]
 
-  const filtered = users.filter((u) => {
-    const q = query.trim().toLowerCase()
-    if (!q) return true
-    return (
-      u.name.toLowerCase().includes(q) ||
-      u.email.toLowerCase().includes(q) ||
-      u.role.toLowerCase().includes(q)
-    )
-  })
+export function UserTable({
+  users,
+  isLoading,
+  session,
+  onRequestStatusChange,
+  onRequestDelete,
+}: {
+  users: ManagedUser[]
+  isLoading: boolean
+  session: SessionUser
+  onRequestStatusChange: (user: ManagedUser, status: StatusCode) => void
+  onRequestDelete: (user: ManagedUser) => void
+}) {
+  const showParticipant = !isParticipantScoped(session.roleCode)
+  const canManage = canManageUsers(session.roleCode)
+  const columnCount = 4 + (showParticipant ? 1 : 0) + (canManage ? 1 : 0)
 
   return (
-    <div className="space-y-4">
-      <div className="relative max-w-sm">
-        <Search className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
-        <Input
-          placeholder="Search by name, email, or role"
-          value={query}
-          onChange={(e) => setQuery(e.target.value)}
-          className="pl-9"
-          aria-label="Search users"
-        />
-      </div>
-      <div className="rounded-lg border">
-        <Table>
-          <TableHeader>
-            <TableRow>
-              <TableHead>User</TableHead>
-              <TableHead className="hidden md:table-cell">Role</TableHead>
-              <TableHead>Status</TableHead>
-              <TableHead className="hidden lg:table-cell">Created</TableHead>
-              <TableHead className="w-[60px] text-right">Actions</TableHead>
-            </TableRow>
-          </TableHeader>
-          <TableBody>
-            {filtered.length === 0 ? (
-              <TableRow>
-                <TableCell colSpan={5} className="h-24 text-center text-muted-foreground">
-                  No users found.
+    <div className="rounded-lg border">
+      <Table>
+        <TableHeader>
+          <TableRow>
+            <TableHead>User</TableHead>
+            {showParticipant ? <TableHead>Participant</TableHead> : null}
+            <TableHead className="hidden md:table-cell">Role</TableHead>
+            <TableHead>Status</TableHead>
+            <TableHead className="hidden lg:table-cell">Created</TableHead>
+            {canManage ? <TableHead className="w-[60px] text-right">Actions</TableHead> : null}
+          </TableRow>
+        </TableHeader>
+        <TableBody>
+          {isLoading ? (
+            Array.from({ length: 4 }).map((_, i) => (
+              <TableRow key={i}>
+                <TableCell colSpan={columnCount}>
+                  <Skeleton className="h-8 w-full" />
                 </TableCell>
               </TableRow>
-            ) : (
-              filtered.map((user) => (
-                <UserRow
-                  key={user.id}
-                  user={user}
-                  onInactivate={() => {
-                    requestInactivate(user.id)
-                    toast("Inactivation requested", {
-                      description: `${user.name} is pending approval.`,
-                    })
-                  }}
-                  onDelete={() => {
-                    requestDelete(user.id)
-                    toast("Deletion requested", {
-                      description: `${user.name} is pending approval.`,
-                    })
-                  }}
-                  onReactivate={() => {
-                    reactivateUser(user.id)
-                    toast.success("User reactivated", { description: `${user.name} is active.` })
-                  }}
-                />
-              ))
-            )}
-          </TableBody>
-        </Table>
-      </div>
+            ))
+          ) : users.length === 0 ? (
+            <TableRow>
+              <TableCell colSpan={columnCount} className="h-24 text-center text-muted-foreground">
+                No users match your filters.
+              </TableCell>
+            </TableRow>
+          ) : (
+            users.map((user) => (
+              <UserRow
+                key={user.id}
+                user={user}
+                showParticipant={showParticipant}
+                canManage={canManage}
+                onRequestStatusChange={onRequestStatusChange}
+                onRequestDelete={onRequestDelete}
+              />
+            ))
+          )}
+        </TableBody>
+      </Table>
     </div>
   )
 }
 
 function UserRow({
   user,
-  onInactivate,
-  onDelete,
-  onReactivate,
+  showParticipant,
+  canManage,
+  onRequestStatusChange,
+  onRequestDelete,
 }: {
   user: ManagedUser
-  onInactivate: () => void
-  onDelete: () => void
-  onReactivate: () => void
+  showParticipant: boolean
+  canManage: boolean
+  onRequestStatusChange: (user: ManagedUser, status: StatusCode) => void
+  onRequestDelete: (user: ManagedUser) => void
 }) {
   const hasPending = Boolean(user.pendingRequest)
+  const isDeleted = user.status === "D"
+  const actionsDisabled = hasPending || isDeleted
 
   return (
     <TableRow>
       <TableCell>
         <div className="flex items-center gap-3">
           <Avatar className="size-8">
-            <AvatarFallback className="text-xs">{initials(user.name)}</AvatarFallback>
+            <AvatarFallback className="text-xs">{initials(user.fullName)}</AvatarFallback>
           </Avatar>
           <div className="min-w-0">
-            <p className="truncate font-medium">{user.name}</p>
-            <p className="truncate text-sm text-muted-foreground">{user.email}</p>
+            <p className="truncate font-medium">{user.fullName}</p>
+            <p className="truncate text-sm text-muted-foreground">@{user.username}</p>
           </div>
         </div>
       </TableCell>
-      <TableCell className="hidden md:table-cell">{user.role}</TableCell>
+      {showParticipant ? (
+        <TableCell>
+          {user.participantCode ? (
+            <span className="font-mono text-sm">{user.participantCode}</span>
+          ) : (
+            <span className="text-muted-foreground">&mdash;</span>
+          )}
+        </TableCell>
+      ) : null}
+      <TableCell className="hidden md:table-cell">{ROLE_LABELS[user.roleCode]}</TableCell>
       <TableCell>
         <div className="flex flex-col gap-1">
           <StatusBadge status={user.status} />
           {hasPending ? (
-            <span className="text-xs text-amber-700">Change pending approval</span>
+            <span className="text-xs text-amber-600">Change pending approval</span>
           ) : null}
         </div>
       </TableCell>
       <TableCell className="hidden lg:table-cell text-muted-foreground">
         {formatDate(user.createdAt)}
       </TableCell>
-      <TableCell className="text-right">
-        <DropdownMenu>
-          <DropdownMenuTrigger
-            render={
-              <Button
-                variant="ghost"
-                size="icon"
-                className="size-8"
-                aria-label={`Actions for ${user.name}`}
-              />
-            }
-          >
-            <MoreHorizontal className="size-4" />
-          </DropdownMenuTrigger>
-          <DropdownMenuContent align="end">
-            {user.status === "inactive" ? (
-              <DropdownMenuItem onClick={onReactivate} disabled={hasPending}>
-                <UserCheck className="size-4" aria-hidden="true" />
-                Reactivate
-              </DropdownMenuItem>
-            ) : (
-              <DropdownMenuItem onClick={onInactivate} disabled={hasPending || user.status !== "active"}>
-                <UserMinus className="size-4" aria-hidden="true" />
-                Inactivate
-              </DropdownMenuItem>
-            )}
-            <DropdownMenuSeparator />
-            <DropdownMenuItem
-              onClick={onDelete}
-              disabled={hasPending}
-              className="text-destructive focus:text-destructive"
+      {canManage ? (
+        <TableCell className="text-right">
+          <DropdownMenu>
+            <DropdownMenuTrigger
+              render={
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  className="size-8"
+                  disabled={actionsDisabled}
+                  aria-label={`Actions for ${user.fullName}`}
+                />
+              }
             >
-              <UserX className="size-4" aria-hidden="true" />
-              Delete
-            </DropdownMenuItem>
-          </DropdownMenuContent>
-        </DropdownMenu>
-      </TableCell>
+              <MoreHorizontal className="size-4" />
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="end">
+              {STATUS_ACTIONS.filter((a) => a.status !== user.status).map((action) => (
+                <DropdownMenuItem
+                  key={action.status}
+                  onClick={() => onRequestStatusChange(user, action.status)}
+                >
+                  <action.icon className="size-4" aria-hidden="true" />
+                  {action.label}
+                  <span className="ml-auto text-xs text-muted-foreground">
+                    {STATUS_LABELS[action.status]}
+                  </span>
+                </DropdownMenuItem>
+              ))}
+              <DropdownMenuSeparator />
+              <DropdownMenuItem
+                onClick={() => onRequestDelete(user)}
+                className="text-destructive focus:text-destructive"
+              >
+                <Trash2 className="size-4" aria-hidden="true" />
+                Delete
+              </DropdownMenuItem>
+            </DropdownMenuContent>
+          </DropdownMenu>
+        </TableCell>
+      ) : null}
     </TableRow>
   )
 }
