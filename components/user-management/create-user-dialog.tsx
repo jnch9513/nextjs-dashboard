@@ -3,9 +3,15 @@
 import type React from "react"
 import { useState } from "react"
 import { UserPlus } from "lucide-react"
-import { toast } from "sonner"
 
-import { ROLES, useUsers } from "@/lib/users-store"
+import {
+  ROLE_LABELS,
+  assignableRoles,
+  isParticipantScoped,
+  type RoleCode,
+  type SessionUser,
+} from "@/lib/user-management/types"
+import type { CreateUserInput } from "@/lib/user-management/api"
 import { Button } from "@/components/ui/button"
 import {
   Dialog,
@@ -27,33 +33,57 @@ import {
 } from "@/components/ui/select"
 
 const EMAIL_PATTERN = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
+const PARTICIPANT_PATTERN = /^[A-Z]{2}[0-9]{3}$/
 
-export function CreateUserDialog() {
-  const { createUserRequest, currentAdmin } = useUsers()
+export function CreateUserDialog({
+  session,
+  onCreate,
+}: {
+  session: SessionUser
+  onCreate: (input: CreateUserInput) => void
+}) {
+  const roles = assignableRoles(session.roleCode)
+  const scoped = isParticipantScoped(session.roleCode)
+
   const [open, setOpen] = useState(false)
-  const [name, setName] = useState("")
+  const [fullName, setFullName] = useState("")
+  const [username, setUsername] = useState("")
   const [email, setEmail] = useState("")
-  const [role, setRole] = useState(ROLES[3])
+  const [roleCode, setRoleCode] = useState<RoleCode>(roles[roles.length - 1] ?? "MLN")
+  const [participantCode, setParticipantCode] = useState("")
 
   const emailValid = EMAIL_PATTERN.test(email)
-  const isValid = name.trim().length > 1 && emailValid && role.length > 0
+  // PO must supply a valid participant code; ML admins inherit their own.
+  const participantValid = scoped || PARTICIPANT_PATTERN.test(participantCode)
+  const isValid =
+    fullName.trim().length > 1 &&
+    username.trim().length > 1 &&
+    emailValid &&
+    participantValid
 
   function resetForm() {
-    setName("")
+    setFullName("")
+    setUsername("")
     setEmail("")
-    setRole(ROLES[3])
+    setRoleCode(roles[roles.length - 1] ?? "MLN")
+    setParticipantCode("")
   }
 
   function handleSubmit(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault()
     if (!isValid) return
-    createUserRequest({ name: name.trim(), email: email.trim(), role })
-    toast.success("User request submitted", {
-      description: `${name.trim()} is pending approval by another admin.`,
+    onCreate({
+      fullName: fullName.trim(),
+      username: username.trim(),
+      email: email.trim(),
+      roleCode,
+      participantCode: scoped ? session.participantCode : participantCode,
     })
     resetForm()
     setOpen(false)
   }
+
+  const roleItems = roles.map((r) => ({ label: ROLE_LABELS[r], value: r }))
 
   return (
     <Dialog
@@ -81,8 +111,19 @@ export function CreateUserDialog() {
               <Input
                 id="new-name"
                 placeholder="e.g. Jane Doe"
-                value={name}
-                onChange={(e) => setName(e.target.value)}
+                value={fullName}
+                onChange={(e) => setFullName(e.target.value)}
+                autoComplete="off"
+                required
+              />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="new-username">Username</Label>
+              <Input
+                id="new-username"
+                placeholder="e.g. jane.doe"
+                value={username}
+                onChange={(e) => setUsername(e.target.value)}
                 autoComplete="off"
                 required
               />
@@ -103,23 +144,62 @@ export function CreateUserDialog() {
                 <p className="text-xs text-destructive">Enter a valid email address.</p>
               ) : null}
             </div>
-            <div className="space-y-2">
-              <Label htmlFor="new-role">Role</Label>
-              <Select value={role} onValueChange={setRole}>
-                <SelectTrigger id="new-role" className="w-full">
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  {ROLES.map((r) => (
-                    <SelectItem key={r} value={r}>
-                      {r}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
+            <div className="flex gap-3">
+              <div className="flex-1 space-y-2">
+                <Label htmlFor="new-role">Role</Label>
+                <Select
+                  value={roleCode}
+                  onValueChange={(v) => setRoleCode(v as RoleCode)}
+                  items={roleItems}
+                >
+                  <SelectTrigger id="new-role" className="w-full">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {roleItems.map((item) => (
+                      <SelectItem key={item.value} value={item.value}>
+                        {item.label}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+              {scoped ? (
+                <div className="flex-1 space-y-2">
+                  <Label htmlFor="new-participant-fixed">Participant</Label>
+                  <Input
+                    id="new-participant-fixed"
+                    value={session.participantCode}
+                    className="font-mono"
+                    readOnly
+                    disabled
+                  />
+                </div>
+              ) : (
+                <div className="flex-1 space-y-2">
+                  <Label htmlFor="new-participant">Participant code</Label>
+                  <Input
+                    id="new-participant"
+                    placeholder="e.g. FF278"
+                    value={participantCode}
+                    onChange={(e) =>
+                      setParticipantCode(
+                        e.target.value
+                          .toUpperCase()
+                          .replace(/[^A-Z0-9]/g, "")
+                          .slice(0, 5),
+                      )
+                    }
+                    aria-invalid={participantCode.length > 0 && !PARTICIPANT_PATTERN.test(participantCode)}
+                    className="font-mono uppercase"
+                    autoComplete="off"
+                    required
+                  />
+                </div>
+              )}
             </div>
             <p className="text-xs text-muted-foreground">
-              Requested by {currentAdmin.name}. Another admin must approve this request.
+              Requested by {session.fullName}. Another admin must approve this request.
             </p>
           </div>
           <DialogFooter>

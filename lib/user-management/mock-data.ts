@@ -1,0 +1,160 @@
+import type { ManagedUser, SessionUser } from "./types"
+
+// Switchable "acting as" identities used to demonstrate role-based views and
+// maker-checker approval. In production the real session comes from `/api/me`.
+export const SESSIONS: SessionUser[] = [
+  {
+    id: "adm_alice",
+    fullName: "Alice Chan",
+    username: "alice.chan",
+    roleCode: "PO",
+    participantCode: "",
+  },
+  {
+    id: "adm_bob",
+    fullName: "Bob Wong",
+    username: "bob.wong",
+    roleCode: "MLA",
+    participantCode: "FF278",
+  },
+  {
+    id: "adm_cara",
+    fullName: "Cara Ng",
+    username: "cara.ng",
+    roleCode: "MLN",
+    participantCode: "FF278",
+  },
+]
+
+export const SEED_USERS: ManagedUser[] = [
+  // Participant FF278
+  {
+    id: "usr_bob",
+    username: "bob.wong",
+    fullName: "Bob Wong",
+    email: "bob.wong@ff278.com",
+    roleCode: "MLA",
+    status: "A",
+    participantCode: "FF278",
+    createdAt: "2025-10-02T09:15:00Z",
+  },
+  {
+    id: "usr_cara",
+    username: "cara.ng",
+    fullName: "Cara Ng",
+    email: "cara.ng@ff278.com",
+    roleCode: "MLN",
+    status: "A",
+    participantCode: "FF278",
+    createdAt: "2025-11-18T14:30:00Z",
+  },
+  {
+    id: "usr_dave",
+    username: "dave.lee",
+    fullName: "Dave Lee",
+    email: "dave.lee@ff278.com",
+    roleCode: "MLN",
+    status: "TL",
+    participantCode: "FF278",
+    createdAt: "2025-09-21T11:05:00Z",
+    // Pending suspend requested by Bob (MLA). A Platform Operator can approve.
+    pendingRequest: {
+      type: "status_change",
+      targetStatus: "S",
+      requestedById: "adm_bob",
+      requestedByName: "Bob Wong",
+      requestedAt: "2026-08-05T08:45:00Z",
+    },
+  },
+  {
+    id: "usr_emma",
+    username: "emma.watson",
+    fullName: "Emma Watson",
+    email: "emma.watson@ff278.com",
+    roleCode: "MLN",
+    status: "IS",
+    participantCode: "FF278",
+    createdAt: "2026-06-19T08:45:00Z",
+  },
+  {
+    id: "usr_leo",
+    username: "leo.ma",
+    fullName: "Leo Ma",
+    email: "leo.ma@ff278.com",
+    roleCode: "MLN",
+    status: "IS",
+    participantCode: "FF278",
+    createdAt: "2026-08-01T10:00:00Z",
+    // Pending create requested by Alice (PO). Bob (a different admin) can approve.
+    pendingRequest: {
+      type: "create",
+      targetStatus: "IS",
+      requestedById: "adm_alice",
+      requestedByName: "Alice Chan",
+      requestedAt: "2026-08-01T10:00:00Z",
+    },
+  },
+  // Participant FF195
+  {
+    id: "usr_frank",
+    username: "frank.miller",
+    fullName: "Frank Miller",
+    email: "frank.miller@ff195.com",
+    roleCode: "MLA",
+    status: "A",
+    participantCode: "FF195",
+    createdAt: "2025-08-11T09:00:00Z",
+  },
+  {
+    id: "usr_grace",
+    username: "grace.kim",
+    fullName: "Grace Kim",
+    email: "grace.kim@ff195.com",
+    roleCode: "MLN",
+    status: "S",
+    participantCode: "FF195",
+    createdAt: "2025-12-01T13:20:00Z",
+  },
+  // Participant CC107
+  {
+    id: "usr_ivy",
+    username: "ivy.chan",
+    fullName: "Ivy Chan",
+    email: "ivy.chan@cc107.com",
+    roleCode: "MLA",
+    status: "A",
+    participantCode: "CC107",
+    createdAt: "2025-07-15T09:30:00Z",
+  },
+  {
+    id: "usr_jack",
+    username: "jack.lo",
+    fullName: "Jack Lo",
+    email: "jack.lo@cc107.com",
+    roleCode: "MLN",
+    status: "PL",
+    participantCode: "CC107",
+    createdAt: "2025-05-09T16:40:00Z",
+  },
+  // Platform-level operators (no participant)
+  {
+    id: "usr_alice",
+    username: "alice.chan",
+    fullName: "Alice Chan",
+    email: "alice.chan@platform.com",
+    roleCode: "PO",
+    status: "A",
+    participantCode: "",
+    createdAt: "2025-01-04T08:00:00Z",
+  },
+  {
+    id: "usr_karen",
+    username: "karen.tsang",
+    fullName: "Karen Tsang",
+    email: "karen.tsang@platform.com",
+    roleCode: "PO",
+    status: "A",
+    participantCode: "",
+    createdAt: "2025-02-20T08:00:00Z",
+  },
+]

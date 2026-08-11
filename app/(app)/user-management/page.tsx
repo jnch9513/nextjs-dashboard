@@ -1,62 +1,124 @@
 "use client"
 
-import { CheckCircle2, Clock, Users, UserX } from "lucide-react"
+import { useState } from "react"
+import useSWR from "swr"
+import { toast } from "sonner"
 
-import { useUsers } from "@/lib/users-store"
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
+import { userManagementApi, type CreateUserInput } from "@/lib/user-management/api"
+import { useSession } from "@/lib/user-management/session-context"
+import {
+  EMPTY_FILTERS,
+  canManageUsers,
+  isParticipantScoped,
+  type ManagedUser,
+  type StatusCode,
+  type UserFilters,
+} from "@/lib/user-management/types"
 import { CreateUserDialog } from "@/components/user-management/create-user-dialog"
 import { PendingApprovals } from "@/components/user-management/pending-approvals"
+import { UserFiltersBar } from "@/components/user-management/user-filters"
 import { UserTable } from "@/components/user-management/user-table"
 
 export default function UserManagementPage() {
-  const { users } = useUsers()
+  const { session } = useSession()
+  const [filters, setFilters] = useState<UserFilters>(EMPTY_FILTERS)
 
-  const stats = {
-    total: users.length,
-    active: users.filter((u) => u.status === "active").length,
-    inactive: users.filter((u) => u.status === "inactive").length,
-    pending: users.filter((u) => u.pendingRequest).length,
+  const canManage = canManageUsers(session.roleCode)
+  const showParticipant = !isParticipantScoped(session.roleCode)
+
+  // Keyed on session + filters so switching acting-as user or changing a filter
+  // refetches the correctly scoped list (query params in production).
+  const usersKey = [
+    "um-users",
+    session.id,
+    filters.participantCode,
+    filters.username,
+    filters.status,
+    filters.roleCode,
+  ] as const
+  const {
+    data: users,
+    isLoading,
+    mutate: mutateUsers,
+  } = useSWR(usersKey, () => userManagementApi.listUsers(session, filters))
+
+  const pendingKey = ["um-pending", session.id] as const
+  const { data: pending, mutate: mutatePending } = useSWR(pendingKey, () =>
+    userManagementApi.listPending(session),
+  )
+
+  async function refresh() {
+    await Promise.all([mutateUsers(), mutatePending()])
   }
 
-  const cards = [
-    { label: "Total users", value: stats.total, icon: Users, tint: "text-foreground" },
-    { label: "Active", value: stats.active, icon: CheckCircle2, tint: "text-emerald-600" },
-    { label: "Inactive", value: stats.inactive, icon: UserX, tint: "text-muted-foreground" },
-    { label: "Pending approval", value: stats.pending, icon: Clock, tint: "text-amber-600" },
-  ]
+  async function handleCreate(input: CreateUserInput) {
+    await userManagementApi.createUserRequest(session, input)
+    toast.success("User request submitted", {
+      description: `${input.fullName} is pending approval by another admin.`,
+    })
+    await refresh()
+  }
+
+  async function handleStatusChange(user: ManagedUser, status: StatusCode) {
+    await userManagementApi.requestStatusChange(session, user.id, status)
+    toast("Status change requested", { description: `${user.fullName} is pending approval.` })
+    await refresh()
+  }
+
+  async function handleDelete(user: ManagedUser) {
+    await userManagementApi.requestDelete(session, user.id)
+    toast("Deletion requested", { description: `${user.fullName} is pending approval.` })
+    await refresh()
+  }
+
+  async function handleApprove(user: ManagedUser) {
+    await userManagementApi.approveRequest(user.id)
+    toast.success("Request approved", { description: `${user.fullName} updated.` })
+    await refresh()
+  }
+
+  async function handleReject(user: ManagedUser) {
+    await userManagementApi.rejectRequest(user.id)
+    toast("Request rejected", { description: `${user.fullName}'s request was rejected.` })
+    await refresh()
+  }
 
   return (
     <div className="mx-auto flex max-w-5xl flex-col gap-6">
-      <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
-        <div>
-          <h1 className="text-2xl font-semibold tracking-tight">User Management</h1>
-          <p className="text-sm text-muted-foreground">
-            Create, deactivate, and remove users. Sensitive changes require a second admin&apos;s
-            approval.
-          </p>
-        </div>
-        <CreateUserDialog />
+      <div>
+        <h1 className="text-2xl font-semibold tracking-tight">User Management</h1>
+        <p className="text-sm text-muted-foreground">
+          {showParticipant
+            ? "Manage users across all participants."
+            : `Manage users for participant ${session.participantCode}.`}
+        </p>
       </div>
 
-      <div className="grid grid-cols-2 gap-4 lg:grid-cols-4">
-        {cards.map((card) => (
-          <Card key={card.label}>
-            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <CardTitle className="text-sm font-medium text-muted-foreground">
-                {card.label}
-              </CardTitle>
-              <card.icon className={`size-4 ${card.tint}`} aria-hidden="true" />
-            </CardHeader>
-            <CardContent>
-              <p className="text-2xl font-semibold">{card.value}</p>
-            </CardContent>
-          </Card>
-        ))}
+      <div className="flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
+        <UserFiltersBar filters={filters} onChange={setFilters} showParticipant={showParticipant} />
+        {canManage ? (
+          <div className="shrink-0">
+            <CreateUserDialog session={session} onCreate={handleCreate} />
+          </div>
+        ) : null}
       </div>
 
-      <PendingApprovals />
+      {canManage ? (
+        <PendingApprovals
+          pending={pending ?? []}
+          session={session}
+          onApprove={handleApprove}
+          onReject={handleReject}
+        />
+      ) : null}
 
-      <UserTable />
+      <UserTable
+        users={users ?? []}
+        isLoading={isLoading}
+        session={session}
+        onRequestStatusChange={handleStatusChange}
+        onRequestDelete={handleDelete}
+      />
     </div>
   )
 }
