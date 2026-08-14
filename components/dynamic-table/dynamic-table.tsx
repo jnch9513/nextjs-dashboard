@@ -89,6 +89,8 @@ function formatValue(value: unknown, column: ColumnDef): string {
       return new Intl.DateTimeFormat("en-US", {
         dateStyle: column.format?.dateStyle ?? "medium",
         timeStyle: column.format?.withTime ? "short" : undefined,
+        // Pin the time zone so server (UTC) and client render the same text.
+        timeZone: column.format?.timeZone ?? "UTC",
       }).format(date)
     }
     default:

@@ -51,6 +51,12 @@ export interface ColumnDef {
     dateStyle?: "short" | "medium" | "long"
     /** date: also show the time. */
     withTime?: boolean
+    /**
+     * date: IANA time zone used for formatting. Defaults to "UTC" so the
+     * server and client render identical text (avoids hydration mismatch).
+     * Set e.g. "Asia/Hong_Kong" to display in a specific zone.
+     */
+    timeZone?: string
   }
 
   /** Config for `avatar` columns — a name circle + primary/secondary lines. */
