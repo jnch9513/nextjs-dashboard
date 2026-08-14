@@ -4,11 +4,12 @@ import useSWR from "swr"
 
 import type { RowData } from "@/lib/dynamic-table/types"
 
-// Spring Boot's Pageable endpoints return a `Page<T>` envelope like:
-// { content: [...], totalElements, totalPages, number, size, ... }
-// Plain endpoints return a bare array: [...]
-// This type covers both shapes.
-interface SpringPage<T> {
+// Your Spring Boot backend returns one of two shapes:
+//   - Pageable endpoints: a `Page<T>` envelope
+//     { content: [...], totalElements, totalPages, number, size, ... }
+//   - Plain endpoints: a bare array [...]
+// This hook normalizes both into a flat rows array + total count.
+interface PageEnvelope<T> {
   content: T[]
   totalElements?: number
   totalPages?: number
@@ -16,9 +17,9 @@ interface SpringPage<T> {
   size?: number
 }
 
-type SpringResponse<T> = T[] | SpringPage<T>
+type ApiResponse<T> = T[] | PageEnvelope<T>
 
-export interface UseSpringTableResult {
+export interface UseApiTableResult {
   rows: RowData[]
   /** Total record count reported by the API (falls back to rows.length). */
   total: number
@@ -28,7 +29,7 @@ export interface UseSpringTableResult {
   refresh: () => void
 }
 
-async function springFetcher<T extends RowData>(url: string): Promise<SpringResponse<T>> {
+async function fetcher<T extends RowData>(url: string): Promise<ApiResponse<T>> {
   const res = await fetch(url, {
     headers: { Accept: "application/json" },
   })
@@ -38,8 +39,7 @@ async function springFetcher<T extends RowData>(url: string): Promise<SpringResp
   return res.json()
 }
 
-// Normalize either response shape into a flat rows array + total count.
-function normalize<T extends RowData>(data: SpringResponse<T> | undefined): {
+function normalize<T extends RowData>(data: ApiResponse<T> | undefined): {
   rows: RowData[]
   total: number
 } {
@@ -49,13 +49,13 @@ function normalize<T extends RowData>(data: SpringResponse<T> | undefined): {
 }
 
 /**
- * Fetch rows from a Spring Boot REST endpoint for the DynamicTable.
+ * Fetch rows from a REST endpoint for the DynamicTable.
  * Handles both bare-array and Page<T> responses.
  *
- * @param url The Spring endpoint, or null to skip fetching.
+ * @param url The endpoint, or null to skip fetching.
  */
-export function useSpringTable(url: string | null): UseSpringTableResult {
-  const { data, error, isLoading, mutate } = useSWR(url, springFetcher, {
+export function useApiTable(url: string | null): UseApiTableResult {
+  const { data, error, isLoading, mutate } = useSWR(url, fetcher, {
     revalidateOnFocus: false,
   })
 

@@ -3,16 +3,17 @@
 import { AlertCircle, RefreshCw } from "lucide-react"
 
 import type { ColumnDef } from "@/lib/dynamic-table/types"
-import { useSpringTable } from "@/lib/dynamic-table/use-spring-table"
+import { useApiTable } from "@/lib/dynamic-table/use-api-table"
 import { DynamicTable } from "@/components/dynamic-table/dynamic-table"
 import { Button } from "@/components/ui/button"
 import { Skeleton } from "@/components/ui/skeleton"
 
 /**
- * Drop-in table that fetches its rows from a Spring Boot REST endpoint.
- * Define `columns` (the Type) once, pass the `endpoint`, and it renders.
+ * Drop-in table that fetches its rows from a REST endpoint.
+ * Define `columns` (the Type) once, pass the `endpoint`, and it renders —
+ * loading and error states included.
  */
-export function SpringDynamicTable({
+export function ApiDynamicTable({
   columns,
   endpoint,
   pageSize = 8,
@@ -23,7 +24,7 @@ export function SpringDynamicTable({
   pageSize?: number
   caption?: string
 }) {
-  const { rows, isLoading, error, refresh } = useSpringTable(endpoint)
+  const { rows, isLoading, error, refresh } = useApiTable(endpoint)
 
   if (error) {
     return (
