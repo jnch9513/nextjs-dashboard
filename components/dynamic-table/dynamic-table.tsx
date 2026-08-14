@@ -3,8 +3,10 @@
 import * as React from "react"
 import { ArrowDown, ArrowUp, ChevronsUpDown, ChevronLeft, ChevronRight } from "lucide-react"
 
-import type { ColumnAlign, ColumnDef, RowData, SortState } from "@/lib/dynamic-table/types"
+import type { ColumnAlign, ColumnDef, RowData, SortState, Tone } from "@/lib/dynamic-table/types"
 import { cn } from "@/lib/utils"
+import { Avatar, AvatarFallback } from "@/components/ui/avatar"
+import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import {
   Table,
@@ -15,9 +17,19 @@ import {
   TableRow,
 } from "@/components/ui/table"
 
+// Columns that never sort (they hold components, not comparable values).
+const NON_SORTABLE_TYPES = new Set<ColumnDef["type"]>(["actions", "custom"])
+
+function isSortable(column: ColumnDef): boolean {
+  if (NON_SORTABLE_TYPES.has(column.type)) return column.sortable === true
+  return column.sortable !== false
+}
+
 function resolveAlign(column: ColumnDef): ColumnAlign {
   if (column.align) return column.align
-  return column.type === "number" ? "right" : "left"
+  if (column.type === "number") return "right"
+  if (column.type === "actions") return "right"
+  return "left"
 }
 
 const ALIGN_CLASS: Record<ColumnAlign, string> = {
@@ -26,7 +38,37 @@ const ALIGN_CLASS: Record<ColumnAlign, string> = {
   center: "text-center",
 }
 
-// Format a raw cell value based on the column's declared type.
+// Background + text colors per tone (badges). Works in light + dark.
+const TONE_BADGE_CLASS: Record<Tone, string> = {
+  success: "border-transparent bg-emerald-100 text-emerald-800 dark:bg-emerald-950 dark:text-emerald-300",
+  warning: "border-transparent bg-amber-100 text-amber-800 dark:bg-amber-950 dark:text-amber-300",
+  danger: "border-transparent bg-red-100 text-red-800 dark:bg-red-950 dark:text-red-300",
+  info: "border-transparent bg-sky-100 text-sky-800 dark:bg-sky-950 dark:text-sky-300",
+  neutral: "border-transparent bg-slate-100 text-slate-800 dark:bg-slate-800 dark:text-slate-200",
+  muted: "border-transparent bg-muted text-muted-foreground",
+}
+
+// Text color per tone (highlighted note under a badge).
+const TONE_NOTE_CLASS: Record<Tone, string> = {
+  success: "text-emerald-600 dark:text-emerald-400",
+  warning: "text-amber-600 dark:text-amber-400",
+  danger: "text-red-600 dark:text-red-400",
+  info: "text-sky-600 dark:text-sky-400",
+  neutral: "text-foreground",
+  muted: "text-muted-foreground",
+}
+
+function initials(name: string): string {
+  return name
+    .split(" ")
+    .map((p) => p[0])
+    .filter(Boolean)
+    .slice(0, 2)
+    .join("")
+    .toUpperCase()
+}
+
+// Format a scalar value based on the column's declared type.
 function formatValue(value: unknown, column: ColumnDef): string {
   if (value === null || value === undefined || value === "") return "—"
 
@@ -54,6 +96,12 @@ function formatValue(value: unknown, column: ColumnDef): string {
   }
 }
 
+// The value used when sorting a column.
+function sortValue(row: RowData, column: ColumnDef): unknown {
+  if (column.type === "avatar") return row[column.avatar?.nameKey ?? column.key]
+  return row[column.key]
+}
+
 // Type-aware comparator used for sorting.
 function compareValues(a: unknown, b: unknown, column: ColumnDef): number {
   const empty = (v: unknown) => v === null || v === undefined || v === ""
@@ -68,6 +116,55 @@ function compareValues(a: unknown, b: unknown, column: ColumnDef): number {
       return new Date(String(a)).getTime() - new Date(String(b)).getTime()
     default:
       return String(a).localeCompare(String(b))
+  }
+}
+
+// Render a single cell's contents based on the column type.
+function CellContent({ row, column }: { row: RowData; column: ColumnDef }) {
+  switch (column.type) {
+    case "avatar": {
+      const name = String(row[column.avatar?.nameKey ?? column.key] ?? "")
+      const secondaryRaw = column.avatar?.secondaryKey ? row[column.avatar.secondaryKey] : undefined
+      const secondary =
+        secondaryRaw === null || secondaryRaw === undefined || secondaryRaw === ""
+          ? null
+          : `${column.avatar?.secondaryPrefix ?? ""}${secondaryRaw}`
+      return (
+        <div className="flex items-center gap-3">
+          <Avatar className="size-8">
+            <AvatarFallback className="text-xs">{initials(name) || "?"}</AvatarFallback>
+          </Avatar>
+          <div className="min-w-0">
+            <p className="truncate font-medium">{name || "—"}</p>
+            {secondary ? <p className="truncate text-sm text-muted-foreground">{secondary}</p> : null}
+          </div>
+        </div>
+      )
+    }
+    case "badge": {
+      const raw = row[column.key]
+      if (raw === null || raw === undefined || raw === "") return <span className="text-muted-foreground">—</span>
+      const option = column.badge?.options?.[String(raw)]
+      const tone: Tone = option?.tone ?? "neutral"
+      const label = option?.label ?? String(raw)
+      const noteRaw = column.badge?.noteKey ? row[column.badge.noteKey] : undefined
+      const note = noteRaw === null || noteRaw === undefined || noteRaw === "" ? null : String(noteRaw)
+      return (
+        <div className="flex flex-col items-start gap-1">
+          <Badge variant="outline" className={cn("font-medium", TONE_BADGE_CLASS[tone])}>
+            {label}
+          </Badge>
+          {note ? (
+            <span className={cn("text-xs", TONE_NOTE_CLASS[column.badge?.noteTone ?? "warning"])}>{note}</span>
+          ) : null}
+        </div>
+      )
+    }
+    case "actions":
+    case "custom":
+      return <>{column.render?.(row)}</>
+    default:
+      return <>{formatValue(row[column.key], column)}</>
   }
 }
 
@@ -91,7 +188,7 @@ export function DynamicTable({
     if (!column) return data
     const copy = [...data]
     copy.sort((rowA, rowB) => {
-      const result = compareValues(rowA[sort.key], rowB[sort.key], column)
+      const result = compareValues(sortValue(rowA, column), sortValue(rowB, column), column)
       return sort.direction === "asc" ? result : -result
     })
     return copy
@@ -102,7 +199,7 @@ export function DynamicTable({
   const pagedData = sortedData.slice(currentPage * pageSize, currentPage * pageSize + pageSize)
 
   function toggleSort(column: ColumnDef) {
-    if (column.sortable === false) return
+    if (!isSortable(column)) return
     setPage(0)
     setSort((prev) => {
       if (prev?.key !== column.key) return { key: column.key, direction: "asc" }
@@ -124,9 +221,9 @@ export function DynamicTable({
               {columns.map((column) => {
                 const align = resolveAlign(column)
                 const isSorted = sort?.key === column.key
-                const sortable = column.sortable !== false
+                const sortable = isSortable(column)
                 return (
-                  <TableHead key={column.key} className={ALIGN_CLASS[align]}>
+                  <TableHead key={column.key} className={cn(ALIGN_CLASS[align], column.headerClassName)}>
                     {sortable ? (
                       <button
                         type="button"
@@ -149,7 +246,7 @@ export function DynamicTable({
                         )}
                       </button>
                     ) : (
-                      column.label
+                      <span className="font-medium">{column.label}</span>
                     )}
                   </TableHead>
                 )
@@ -177,7 +274,7 @@ export function DynamicTable({
                           column.type === "date" && "text-muted-foreground tabular-nums",
                         )}
                       >
-                        {formatValue(row[column.key], column)}
+                        <CellContent row={row} column={column} />
                       </TableCell>
                     )
                   })}
