@@ -1,9 +1,20 @@
 "use client"
 
-import { CircleCheck, Lock, LockKeyhole, MoreHorizontal, PauseCircle, Trash2 } from "lucide-react"
+import { useState } from "react"
+import {
+  CircleCheck,
+  Loader2,
+  Lock,
+  LockKeyhole,
+  MoreHorizontal,
+  PauseCircle,
+  Trash2,
+} from "lucide-react"
+import { toast } from "sonner"
 
-import { ROLE_LABELS, type ManagedUser, type StatusCode } from "@/lib/user-management/types"
+import { ROLE_LABELS, STATUS_LABELS, type ManagedUser, type StatusCode } from "@/lib/user-management/types"
 import { useUsers } from "@/lib/simple-table/use-users"
+import { usersApi } from "@/lib/simple-table/users-api"
 import type { SimpleColumn } from "@/lib/simple-table/types"
 import { Button } from "@/components/ui/button"
 import {
@@ -37,9 +48,11 @@ const STATUS_ACTIONS: { status: StatusCode; label: string; icon: typeof Lock }[]
 
 function RowActions({
   user,
+  busy,
   onAction,
 }: {
   user: ManagedUser
+  busy: boolean
   onAction: (user: ManagedUser, next: StatusCode) => void
 }) {
   return (
@@ -50,11 +63,16 @@ function RowActions({
             variant="ghost"
             size="icon"
             className="size-8"
+            disabled={busy}
             aria-label={`Actions for ${user.fullName}`}
           />
         }
       >
-        <MoreHorizontal className="size-4" />
+        {busy ? (
+          <Loader2 className="size-4 animate-spin" />
+        ) : (
+          <MoreHorizontal className="size-4" />
+        )}
       </DropdownMenuTrigger>
       <DropdownMenuContent align="end">
         {STATUS_ACTIONS.filter((action) => action.status !== user.status).map((action) => (
@@ -77,16 +95,31 @@ function RowActions({
 }
 
 export function SimpleUserTable() {
-  const { users, isLoading, error } = useUsers()
+  const { users, isLoading, error, refresh } = useUsers()
+  // Track which row has an in-flight request so we can disable it and spin.
+  const [busyId, setBusyId] = useState<string | null>(null)
 
-  function handleAction(user: ManagedUser, next: StatusCode) {
-    // TODO(spring): call your mutation endpoint, then refresh(), e.g.
-    //   await fetch(`${USERS_ENDPOINT}/${user.id}/status`, {
-    //     method: "POST",
-    //     body: JSON.stringify({ status: next }),
-    //   })
-    //   refresh()
-    console.log("action requested:", user.username, "->", next)
+  async function handleAction(user: ManagedUser, next: StatusCode) {
+    setBusyId(user.id)
+    try {
+      // Route each action to the matching service call. Every branch hits the
+      // Spring API through `usersApi`; add cases here as you add actions.
+      switch (next) {
+        case "D":
+          await usersApi.remove(user.id)
+          toast.success(`Deleted ${user.fullName}`)
+          break
+        default:
+          await usersApi.setStatus(user.id, next)
+          toast.success(`${user.fullName} → ${STATUS_LABELS[next]}`)
+      }
+      // Re-fetch so the table reflects the backend's new state.
+      await refresh()
+    } catch (err) {
+      toast.error(`Action failed: ${(err as Error).message}`)
+    } finally {
+      setBusyId(null)
+    }
   }
 
   const columns: SimpleColumn<ManagedUser>[] = [
@@ -132,7 +165,9 @@ export function SimpleUserTable() {
       header: "Actions",
       align: "right",
       className: "w-[60px]",
-      cell: (user) => <RowActions user={user} onAction={handleAction} />,
+      cell: (user) => (
+        <RowActions user={user} busy={busyId === user.id} onAction={handleAction} />
+      ),
     },
   ]
 
