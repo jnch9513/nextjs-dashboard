@@ -7,7 +7,7 @@ import type { ReactNode } from "react"
 
 export type SimpleRow = Record<string, unknown>
 
-export type ColumnType = "text" | "number" | "date" | "twoLine" | "badge" | "custom"
+export type ColumnType = "text" | "code" | "number" | "date" | "twoLine" | "badge" | "custom"
 
 export type ColumnAlign = "left" | "right" | "center"
 
@@ -55,6 +55,13 @@ export interface SimpleColumn<T extends SimpleRow = SimpleRow> {
   secondaryKey?: string
   /** `twoLine`: optional prefix for the secondary line, e.g. "@". */
   secondaryPrefix?: string
+
+  /**
+   * `text` / `code`: map a raw value to a display label (e.g. a role code → its
+   * name). Unmapped values render as-is. Use this instead of a custom `render`
+   * for simple enum-to-label lookups.
+   */
+  labels?: Record<string, string>
 
   /** `badge`: map a raw value to a label + tone. Unmapped values render as-is (neutral). */
   options?: Record<string, BadgeOption>
