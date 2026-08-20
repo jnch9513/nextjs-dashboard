@@ -1,6 +1,6 @@
 "use client"
 
-import { useState } from "react"
+import { useEffect, useState } from "react"
 import {
   CircleCheck,
   Loader2,
@@ -26,6 +26,7 @@ import {
 } from "@/components/ui/dropdown-menu"
 import { StatusBadge } from "@/components/user-management/status-badge"
 import { SimpleTable } from "@/components/simple-table/simple-table"
+import { TablePagination } from "@/components/simple-table/table-pagination"
 
 // Pin the time zone so the server (UTC) and client render the same text.
 function formatDate(iso: string) {
@@ -95,9 +96,24 @@ function RowActions({
 }
 
 export function SimpleUserTable() {
-  const { users, isLoading, error, refresh } = useUsers()
+  // Pagination state. `page` is 0-based to match Spring Data's Pageable.
+  const [page, setPage] = useState(0)
+  const [size, setSize] = useState(10)
+  const { users, totalElements, totalPages, isLoading, error, refresh } = useUsers(page, size)
   // Track which row has an in-flight request so we can disable it and spin.
   const [busyId, setBusyId] = useState<string | null>(null)
+
+  // If a delete empties the last page, step back so we're never on a blank page.
+  useEffect(() => {
+    if (totalPages > 0 && page > totalPages - 1) {
+      setPage(totalPages - 1)
+    }
+  }, [page, totalPages])
+
+  function handleSizeChange(nextSize: number) {
+    setSize(nextSize)
+    setPage(0) // reset to first page when page size changes
+  }
 
   async function handleAction(user: ManagedUser, next: StatusCode) {
     setBusyId(user.id)
@@ -186,6 +202,16 @@ export function SimpleUserTable() {
       isLoading={isLoading}
       getRowKey={(user) => user.id}
       emptyMessage="No users found."
+      footer={
+        <TablePagination
+          page={page}
+          totalPages={totalPages}
+          totalElements={totalElements}
+          size={size}
+          onPageChange={setPage}
+          onSizeChange={handleSizeChange}
+        />
+      }
     />
   )
 }
