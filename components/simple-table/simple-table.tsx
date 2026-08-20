@@ -36,7 +36,7 @@ const HIDE_BELOW_CLASS = {
 } as const
 
 // Turn the declarative `width` prop into an inline style.
-function widthStyle(column: SimpleColumn): CSSProperties | undefined {
+function widthStyle<T extends SimpleRow>(column: SimpleColumn<T>): CSSProperties | undefined {
   if (column.width === undefined) return undefined
   return { width: typeof column.width === "number" ? `${column.width}px` : column.width }
 }
@@ -52,14 +52,14 @@ const TONE_BADGE_CLASS: Record<Tone, string> = {
 }
 
 // Alignment defaults per type when a column doesn't set `align`.
-function resolveAlign(column: SimpleColumn): ColumnAlign {
+function resolveAlign<T extends SimpleRow>(column: SimpleColumn<T>): ColumnAlign {
   if (column.align) return column.align
   if (column.type === "number") return "right"
   return "left"
 }
 
 // Extra cell classes driven by the column type.
-function typeCellClass(column: SimpleColumn): string | undefined {
+function typeCellClass<T extends SimpleRow>(column: SimpleColumn<T>): string | undefined {
   if (column.type === "number") return "tabular-nums"
   if (column.type === "date") return "text-muted-foreground tabular-nums"
   if (column.type === "code") return "font-mono text-sm"
@@ -67,13 +67,13 @@ function typeCellClass(column: SimpleColumn): string | undefined {
 }
 
 // Resolve a text value, applying the column's label map when present.
-function displayText(value: unknown, column: SimpleColumn): string {
+function displayText<T extends SimpleRow>(value: unknown, column: SimpleColumn<T>): string {
   if (isEmpty(value)) return EMPTY
   const key = String(value)
   return column.labels?.[key] ?? key
 }
 
-function formatNumber(value: unknown, column: SimpleColumn): string {
+function formatNumber<T extends SimpleRow>(value: unknown, column: SimpleColumn<T>): string {
   const num = typeof value === "number" ? value : Number(value)
   if (Number.isNaN(num)) return String(value)
   return new Intl.NumberFormat("en-US", {
@@ -84,7 +84,7 @@ function formatNumber(value: unknown, column: SimpleColumn): string {
   }).format(num)
 }
 
-function formatDate(value: unknown, column: SimpleColumn): string {
+function formatDate<T extends SimpleRow>(value: unknown, column: SimpleColumn<T>): string {
   const date = value instanceof Date ? value : new Date(String(value))
   if (Number.isNaN(date.getTime())) return String(value)
   return new Intl.DateTimeFormat("en-US", {
