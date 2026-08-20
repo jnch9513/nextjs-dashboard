@@ -114,8 +114,8 @@ function UserRowActions({ user, onDone }: { user: ManagedUser; onDone: () => voi
 const columns: SimpleColumn<ManagedUser>[] = [
   // Two-line cell: full name on top, @username muted underneath.
   { key: "fullName", header: "User", type: "twoLine", secondaryKey: "username", secondaryPrefix: "@" },
-  // Monospace participant code (type "code" applies the mono styling for us).
-  { key: "participantCode", header: "Participant", type: "code" },
+  // Participant code displayed as regular text.
+  { key: "participantCode", header: "Participant", type: "text" },
   // Role code → readable label via a lookup map.
   { key: "roleCode", header: "Role", labels: ROLE_LABELS, hideBelow: "md" },
   // Colored status pill via a value → { label, tone } map.
