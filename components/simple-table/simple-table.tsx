@@ -2,7 +2,15 @@
 
 import type { ReactNode } from "react"
 
+import type {
+  BadgeOption,
+  ColumnAlign,
+  SimpleColumn,
+  SimpleRow,
+  Tone,
+} from "@/lib/simple-table/types"
 import { cn } from "@/lib/utils"
+import { Badge } from "@/components/ui/badge"
 import { Skeleton } from "@/components/ui/skeleton"
 import {
   Table,
@@ -12,13 +20,114 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table"
-import type { SimpleColumn, SimpleRow } from "@/lib/simple-table/types"
 
-const ALIGN_CLASS = {
+const ALIGN_CLASS: Record<ColumnAlign, string> = {
   left: "text-left",
   right: "text-right",
   center: "text-center",
-} as const
+}
+
+// Background + text colors per tone. Works in light + dark.
+const TONE_BADGE_CLASS: Record<Tone, string> = {
+  success: "border-transparent bg-emerald-100 text-emerald-800 dark:bg-emerald-950 dark:text-emerald-300",
+  warning: "border-transparent bg-amber-100 text-amber-800 dark:bg-amber-950 dark:text-amber-300",
+  danger: "border-transparent bg-red-100 text-red-800 dark:bg-red-950 dark:text-red-300",
+  info: "border-transparent bg-sky-100 text-sky-800 dark:bg-sky-950 dark:text-sky-300",
+  neutral: "border-transparent bg-slate-100 text-slate-800 dark:bg-slate-800 dark:text-slate-200",
+  muted: "border-transparent bg-muted text-muted-foreground",
+}
+
+// Alignment defaults per type when a column doesn't set `align`.
+function resolveAlign(column: SimpleColumn): ColumnAlign {
+  if (column.align) return column.align
+  if (column.type === "number") return "right"
+  return "left"
+}
+
+// Extra cell classes driven by the column type.
+function typeCellClass(column: SimpleColumn): string | undefined {
+  if (column.type === "number") return "tabular-nums"
+  if (column.type === "date") return "text-muted-foreground tabular-nums"
+  return undefined
+}
+
+function formatNumber(value: unknown, column: SimpleColumn): string {
+  const num = typeof value === "number" ? value : Number(value)
+  if (Number.isNaN(num)) return String(value)
+  return new Intl.NumberFormat("en-US", {
+    style: column.format?.currency ? "currency" : "decimal",
+    currency: column.format?.currency,
+    minimumFractionDigits: column.format?.minimumFractionDigits,
+    maximumFractionDigits: column.format?.maximumFractionDigits,
+  }).format(num)
+}
+
+function formatDate(value: unknown, column: SimpleColumn): string {
+  const date = value instanceof Date ? value : new Date(String(value))
+  if (Number.isNaN(date.getTime())) return String(value)
+  return new Intl.DateTimeFormat("en-US", {
+    dateStyle: column.format?.dateStyle ?? "medium",
+    timeStyle: column.format?.withTime ? "short" : undefined,
+    // Pin the time zone so server (UTC) and client render the same text.
+    timeZone: column.format?.timeZone ?? "UTC",
+  }).format(date)
+}
+
+const EMPTY = "\u2014" // em dash
+
+function isEmpty(value: unknown): boolean {
+  return value === null || value === undefined || value === ""
+}
+
+// Render one cell based on the column's declared type.
+function CellContent<T extends SimpleRow>({
+  row,
+  column,
+}: {
+  row: T
+  column: SimpleColumn<T>
+}): ReactNode {
+  const raw = row[column.key]
+
+  switch (column.type) {
+    case "custom":
+      return column.render ? column.render(row) : null
+
+    case "number":
+      return isEmpty(raw) ? EMPTY : formatNumber(raw, column)
+
+    case "date":
+      return isEmpty(raw) ? EMPTY : formatDate(raw, column)
+
+    case "twoLine": {
+      const secondaryRaw = column.secondaryKey ? row[column.secondaryKey] : undefined
+      const secondary = isEmpty(secondaryRaw)
+        ? null
+        : `${column.secondaryPrefix ?? ""}${secondaryRaw}`
+      return (
+        <div className="min-w-0">
+          <p className="truncate font-medium">{isEmpty(raw) ? EMPTY : String(raw)}</p>
+          {secondary ? <p className="truncate text-sm text-muted-foreground">{secondary}</p> : null}
+        </div>
+      )
+    }
+
+    case "badge": {
+      if (isEmpty(raw)) return <span className="text-muted-foreground">{EMPTY}</span>
+      const option: BadgeOption | undefined = column.options?.[String(raw)]
+      const tone: Tone = option?.tone ?? "neutral"
+      const label = option?.label ?? String(raw)
+      return (
+        <Badge variant="outline" className={cn("font-medium", TONE_BADGE_CLASS[tone])}>
+          {label}
+        </Badge>
+      )
+    }
+
+    default: // "text"
+      return isEmpty(raw) ? EMPTY : String(raw)
+  }
+}
 
 export function SimpleTable<T extends SimpleRow>({
   columns,
@@ -45,7 +154,7 @@ export function SimpleTable<T extends SimpleRow>({
             {columns.map((column) => (
               <TableHead
                 key={column.key}
-                className={cn(column.align && ALIGN_CLASS[column.align], column.className)}
+                className={cn(ALIGN_CLASS[resolveAlign(column)], column.className)}
               >
                 {column.header}
               </TableHead>
@@ -76,9 +185,13 @@ export function SimpleTable<T extends SimpleRow>({
                 {columns.map((column) => (
                   <TableCell
                     key={column.key}
-                    className={cn(column.align && ALIGN_CLASS[column.align], column.className)}
+                    className={cn(
+                      ALIGN_CLASS[resolveAlign(column)],
+                      typeCellClass(column),
+                      column.className,
+                    )}
                   >
-                    {column.cell ? column.cell(row) : String(row[column.key] ?? "—")}
+                    <CellContent row={row} column={column} />
                   </TableCell>
                 ))}
               </TableRow>
