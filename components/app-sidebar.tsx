@@ -20,7 +20,7 @@ import {
 const mainNav = [
   { title: "Dashboard", href: "/dashboard", icon: LayoutDashboard },
   { title: "User Management", href: "/user-management", icon: Users },
-  { title: "Simple Table", href: "/simple-table", icon: Rows3 },
+  { title: "Dynamic Table", href: "/dynamic-table", icon: Rows3 },
 ]
 
 const authNav = [

@@ -29,9 +29,14 @@ async function fetchPage<T>(url: string): Promise<Page<T>> {
  * @param page     0-based 頁碼（Spring Data Pageable 預設）
  * @param size     每頁行數
  */
-export function usePagedData<T>(endpoint: string, page: number, size: number) {
-  // page / size 砌落 query，同時做 SWR 嘅 cache key（揭頁自動 re-fetch）。
-  const key = `${endpoint}?page=${page}&size=${size}`
+export function usePagedData<T>(
+  endpoint: string,
+  page: number,
+  size: number,
+  filters: Record<string, string> = {},
+) {
+  const params = new URLSearchParams({ page: String(page), size: String(size), ...filters })
+  const key = endpoint ? `${endpoint}?${params.toString()}` : null
   const { data, error, isLoading, mutate } = useSWR(key, fetchPage<T>, {
     revalidateOnFocus: false,
     keepPreviousData: true, // 揭頁時保留舊資料，避免閃爍

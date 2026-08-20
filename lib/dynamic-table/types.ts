@@ -20,6 +20,21 @@ export interface BadgeOption {
   tone: Tone
 }
 
+export type DynamicSearchValue = string | number | boolean
+
+export type DynamicSearchValues = Record<string, DynamicSearchValue>
+
+export interface DynamicSearchOption {
+  label: string
+  value: string
+}
+
+export type DynamicSearchField =
+  | { key: string; queryKey?: string; label: string; type: "text" | "number" | "date"; placeholder?: string }
+  | { key: string; queryKey?: string; label: string; type: "select"; placeholder?: string; options: DynamicSearchOption[] }
+  | { key: string; queryKey?: string; label: string; type: "boolean" }
+  | { key: string; label: string; type: "dateRange"; fromQueryKey?: string; toQueryKey?: string }
+
 export interface SimpleColumn<T extends SimpleRow = SimpleRow> {
   /** Property key on the row (also the React key for the column). */
   key: string
