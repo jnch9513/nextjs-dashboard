@@ -48,7 +48,15 @@ function resolveAlign(column: SimpleColumn): ColumnAlign {
 function typeCellClass(column: SimpleColumn): string | undefined {
   if (column.type === "number") return "tabular-nums"
   if (column.type === "date") return "text-muted-foreground tabular-nums"
+  if (column.type === "code") return "font-mono text-sm"
   return undefined
+}
+
+// Resolve a text value, applying the column's label map when present.
+function displayText(value: unknown, column: SimpleColumn): string {
+  if (isEmpty(value)) return EMPTY
+  const key = String(value)
+  return column.labels?.[key] ?? key
 }
 
 function formatNumber(value: unknown, column: SimpleColumn): string {
@@ -93,6 +101,9 @@ function CellContent<T extends SimpleRow>({
     case "custom":
       return column.render ? column.render(row) : null
 
+    case "code":
+      return displayText(raw, column)
+
     case "number":
       return isEmpty(raw) ? EMPTY : formatNumber(raw, column)
 
@@ -125,7 +136,7 @@ function CellContent<T extends SimpleRow>({
     }
 
     default: // "text"
-      return isEmpty(raw) ? EMPTY : String(raw)
+      return displayText(raw, column)
   }
 }
 

@@ -158,14 +158,13 @@ export function SimpleUserTable() {
     {
       key: "participantCode",
       header: "Participant",
-      className: "font-mono text-sm",
+      type: "code",
     },
     {
       key: "roleCode",
       header: "Role",
-      type: "custom",
+      labels: ROLE_LABELS,
       className: "hidden md:table-cell",
-      render: (user) => ROLE_LABELS[user.roleCode],
     },
     // Colored status pill via a value → { label, tone } map.
     {
