@@ -15,7 +15,7 @@ import { toast } from "sonner"
 import { ROLE_LABELS, STATUS_LABELS, type ManagedUser, type StatusCode } from "@/lib/user-management/types"
 import { useUsers } from "@/lib/simple-table/use-users"
 import { usersApi } from "@/lib/simple-table/users-api"
-import type { SimpleColumn } from "@/lib/simple-table/types"
+import type { BadgeOption, SimpleColumn, Tone } from "@/lib/simple-table/types"
 import { Button } from "@/components/ui/button"
 import {
   DropdownMenu,
@@ -24,19 +24,26 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu"
-import { StatusBadge } from "@/components/user-management/status-badge"
 import { SimpleTable } from "@/components/simple-table/simple-table"
 import { TablePagination } from "@/components/simple-table/table-pagination"
 
-// Pin the time zone so the server (UTC) and client render the same text.
-function formatDate(iso: string) {
-  return new Date(iso).toLocaleDateString("en-US", {
-    year: "numeric",
-    month: "short",
-    day: "numeric",
-    timeZone: "UTC",
-  })
+// Map each status code to a badge color. This replaces the old <StatusBadge>
+// component — any table can now render statuses by passing an options map.
+const STATUS_TONES: Record<StatusCode, Tone> = {
+  IS: "info",
+  A: "success",
+  TL: "warning",
+  PL: "warning",
+  S: "danger",
+  D: "muted",
 }
+
+const STATUS_OPTIONS: Record<string, BadgeOption> = Object.fromEntries(
+  (Object.keys(STATUS_LABELS) as StatusCode[]).map((code) => [
+    code,
+    { label: STATUS_LABELS[code], tone: STATUS_TONES[code] },
+  ]),
+)
 
 // Status transitions offered in the row menu. Kept label-only (no secondary
 // description) so the narrow Actions column has enough room.
@@ -138,52 +145,48 @@ export function SimpleUserTable() {
     }
   }
 
+  // Columns are fully declarative — the `type` drives rendering + formatting.
   const columns: SimpleColumn<ManagedUser>[] = [
+    // Two-line cell: full name on top, @username muted underneath.
     {
-      key: "user",
+      key: "fullName",
       header: "User",
-      cell: (user) => (
-        <div className="min-w-0">
-          <p className="truncate font-medium">{user.fullName}</p>
-          <p className="truncate text-sm text-muted-foreground">@{user.username}</p>
-        </div>
-      ),
+      type: "twoLine",
+      secondaryKey: "username",
+      secondaryPrefix: "@",
     },
     {
       key: "participantCode",
       header: "Participant",
-      cell: (user) =>
-        user.participantCode ? (
-          <span className="font-mono text-sm">{user.participantCode}</span>
-        ) : (
-          <span className="text-muted-foreground">&mdash;</span>
-        ),
+      className: "font-mono text-sm",
     },
     {
       key: "roleCode",
       header: "Role",
+      type: "custom",
       className: "hidden md:table-cell",
-      cell: (user) => ROLE_LABELS[user.roleCode],
+      render: (user) => ROLE_LABELS[user.roleCode],
     },
+    // Colored status pill via a value → { label, tone } map.
     {
       key: "status",
       header: "Status",
-      cell: (user) => <StatusBadge status={user.status} />,
+      type: "badge",
+      options: STATUS_OPTIONS,
     },
     {
       key: "createdAt",
       header: "Created",
-      className: "hidden lg:table-cell text-muted-foreground",
-      cell: (user) => formatDate(user.createdAt),
+      type: "date",
+      className: "hidden lg:table-cell",
     },
     {
       key: "actions",
       header: "Actions",
+      type: "custom",
       align: "right",
       className: "w-[60px]",
-      cell: (user) => (
-        <RowActions user={user} busy={busyId === user.id} onAction={handleAction} />
-      ),
+      render: (user) => <RowActions user={user} busy={busyId === user.id} onAction={handleAction} />,
     },
   ]
 
