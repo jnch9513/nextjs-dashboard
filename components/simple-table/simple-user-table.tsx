@@ -164,7 +164,7 @@ export function SimpleUserTable() {
       key: "roleCode",
       header: "Role",
       labels: ROLE_LABELS,
-      className: "hidden md:table-cell",
+      hideBelow: "md",
     },
     // Colored status pill via a value → { label, tone } map.
     {
@@ -177,14 +177,14 @@ export function SimpleUserTable() {
       key: "createdAt",
       header: "Created",
       type: "date",
-      className: "hidden lg:table-cell",
+      hideBelow: "lg",
     },
     {
       key: "actions",
       header: "Actions",
       type: "custom",
       align: "right",
-      className: "w-[60px]",
+      width: 60,
       render: (user) => <RowActions user={user} busy={busyId === user.id} onAction={handleAction} />,
     },
   ]

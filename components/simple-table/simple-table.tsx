@@ -1,6 +1,6 @@
 "use client"
 
-import type { ReactNode } from "react"
+import type { CSSProperties, ReactNode } from "react"
 
 import type {
   BadgeOption,
@@ -25,6 +25,20 @@ const ALIGN_CLASS: Record<ColumnAlign, string> = {
   left: "text-left",
   right: "text-right",
   center: "text-center",
+}
+
+// Static classes so Tailwind can see them (no dynamic string building).
+const HIDE_BELOW_CLASS = {
+  sm: "hidden sm:table-cell",
+  md: "hidden md:table-cell",
+  lg: "hidden lg:table-cell",
+  xl: "hidden xl:table-cell",
+} as const
+
+// Turn the declarative `width` prop into an inline style.
+function widthStyle(column: SimpleColumn): CSSProperties | undefined {
+  if (column.width === undefined) return undefined
+  return { width: typeof column.width === "number" ? `${column.width}px` : column.width }
 }
 
 // Background + text colors per tone. Works in light + dark.
@@ -165,7 +179,12 @@ export function SimpleTable<T extends SimpleRow>({
             {columns.map((column) => (
               <TableHead
                 key={column.key}
-                className={cn(ALIGN_CLASS[resolveAlign(column)], column.className)}
+                style={widthStyle(column)}
+                className={cn(
+                  ALIGN_CLASS[resolveAlign(column)],
+                  column.hideBelow && HIDE_BELOW_CLASS[column.hideBelow],
+                  column.className,
+                )}
               >
                 {column.header}
               </TableHead>
@@ -196,9 +215,11 @@ export function SimpleTable<T extends SimpleRow>({
                 {columns.map((column) => (
                   <TableCell
                     key={column.key}
+                    style={widthStyle(column)}
                     className={cn(
                       ALIGN_CLASS[resolveAlign(column)],
                       typeCellClass(column),
+                      column.hideBelow && HIDE_BELOW_CLASS[column.hideBelow],
                       column.className,
                     )}
                   >
