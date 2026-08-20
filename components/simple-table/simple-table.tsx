@@ -1,5 +1,7 @@
 "use client"
 
+import type { ReactNode } from "react"
+
 import { cn } from "@/lib/utils"
 import { Skeleton } from "@/components/ui/skeleton"
 import {
@@ -24,6 +26,7 @@ export function SimpleTable<T extends SimpleRow>({
   isLoading = false,
   emptyMessage = "No data to display.",
   getRowKey,
+  footer,
 }: {
   columns: SimpleColumn<T>[]
   data: T[]
@@ -31,6 +34,8 @@ export function SimpleTable<T extends SimpleRow>({
   emptyMessage?: string
   /** Stable key per row. Falls back to the row index. */
   getRowKey?: (row: T, index: number) => string | number
+  /** Optional content rendered below the table, inside the same border (e.g. a pager). */
+  footer?: ReactNode
 }) {
   return (
     <div className="rounded-lg border">
@@ -81,6 +86,7 @@ export function SimpleTable<T extends SimpleRow>({
           )}
         </TableBody>
       </Table>
+      {footer}
     </div>
   )
 }
