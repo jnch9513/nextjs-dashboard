@@ -1,5 +1,11 @@
 import type { StatusCode } from "@/lib/user-management/types"
-import { USERS_ENDPOINT } from "./use-users"
+
+// ───────────────────────────────────────────────────────────────────────────
+// 換 endpoint 就喺呢一行改。而家指住本地 mock route (app/api/users)，
+// 接通 Spring Boot 時改成你嘅 URL，例如：
+//   export const USERS_ENDPOINT = "https://api.your-domain.com/api/users"
+// 其餘 code 完全唔使改。
+export const USERS_ENDPOINT = "/api/users"
 
 // ───────────────────────────────────────────────────────────────────────────
 // All user mutations live here. This is the ONLY place that knows the request

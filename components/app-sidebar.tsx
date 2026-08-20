@@ -2,7 +2,7 @@
 
 import Link from "next/link"
 import { usePathname } from "next/navigation"
-import { BookOpen, LayoutDashboard, LogIn, Rows3, ShieldCheck, Table2, Users } from "lucide-react"
+import { LayoutDashboard, LogIn, Rows3, ShieldCheck, Users } from "lucide-react"
 
 import {
   Sidebar,
@@ -20,9 +20,7 @@ import {
 const mainNav = [
   { title: "Dashboard", href: "/dashboard", icon: LayoutDashboard },
   { title: "User Management", href: "/user-management", icon: Users },
-  { title: "Dynamic Table", href: "/dynamic-table", icon: Table2 },
   { title: "Simple Table", href: "/simple-table", icon: Rows3 },
-  { title: "Table Reference", href: "/table-reference", icon: BookOpen },
 ]
 
 const authNav = [
