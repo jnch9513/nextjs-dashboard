@@ -29,7 +29,14 @@ export interface SimpleColumn<T extends SimpleRow = SimpleRow> {
   type?: ColumnType
   /** Override the automatic alignment (number/custom-actions default to right). */
   align?: ColumnAlign
-  /** Extra classes applied to BOTH the header and cells (e.g. widths, responsive hiding, font). */
+  /**
+   * Hide this column below a breakpoint (shown at that breakpoint and up).
+   * Declarative alternative to writing `hidden md:table-cell` yourself.
+   */
+  hideBelow?: "sm" | "md" | "lg" | "xl"
+  /** Fixed column width. A number is treated as pixels; a string is used as-is (e.g. "20%"). */
+  width?: number | string
+  /** Escape hatch for extra classes on BOTH header and cells. Rarely needed. */
   className?: string
 
   /** Formatting hints for `number` / `date`. */
