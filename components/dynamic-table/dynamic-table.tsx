@@ -8,7 +8,7 @@ import type {
   SimpleColumn,
   SimpleRow,
   Tone,
-} from "@/lib/simple-table/types"
+} from "@/lib/dynamic-table/types"
 import { cn } from "@/lib/utils"
 import { Badge } from "@/components/ui/badge"
 import { Skeleton } from "@/components/ui/skeleton"
@@ -154,7 +154,7 @@ function CellContent<T extends SimpleRow>({
   }
 }
 
-export function SimpleTable<T extends SimpleRow>({
+export function DynamicTable<T extends SimpleRow>({
   columns,
   data,
   isLoading = false,
