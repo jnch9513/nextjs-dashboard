@@ -23,7 +23,13 @@ export function SessionSwitcher() {
   return (
     <div className="flex items-center gap-2">
       <span className="hidden text-sm text-muted-foreground sm:inline">Acting as</span>
-      <Select value={session.id} onValueChange={setSessionId} items={items}>
+      <Select
+        value={session.id}
+        onValueChange={(id) => {
+          if (id !== null) setSessionId(id)
+        }}
+        items={items}
+      >
         <SelectTrigger className="w-[230px]" aria-label="Acting as user">
           <UserCog className="size-4 text-muted-foreground" aria-hidden="true" />
           <SelectValue />

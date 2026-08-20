@@ -128,7 +128,7 @@ export function SimpleUserTable() {
     <DataTable
       endpoint={USERS_ENDPOINT}
       columns={columns}
-      getRowKey={(user) => user.id}
+      rowKey="id"
       emptyMessage="No users found."
       renderActions={(user, { refresh }) => <UserRowActions user={user} onDone={refresh} />}
     />
