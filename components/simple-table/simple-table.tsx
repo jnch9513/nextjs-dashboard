@@ -159,15 +159,15 @@ export function SimpleTable<T extends SimpleRow>({
   data,
   isLoading = false,
   emptyMessage = "No data to display.",
-  getRowKey,
+  rowKey,
   footer,
 }: {
   columns: SimpleColumn<T>[]
   data: T[]
   isLoading?: boolean
   emptyMessage?: string
-  /** Stable key per row. Falls back to the row index. */
-  getRowKey?: (row: T, index: number) => string | number
+  /** Row property containing a stable unique key. Falls back to the row index. */
+  rowKey?: keyof T & string
   /** Optional content rendered below the table, inside the same border (e.g. a pager). */
   footer?: ReactNode
 }) {
@@ -211,7 +211,7 @@ export function SimpleTable<T extends SimpleRow>({
             </TableRow>
           ) : (
             data.map((row, index) => (
-              <TableRow key={getRowKey?.(row, index) ?? index}>
+              <TableRow key={rowKey ? String(row[rowKey]) : index}>
                 {columns.map((column) => (
                   <TableCell
                     key={column.key}

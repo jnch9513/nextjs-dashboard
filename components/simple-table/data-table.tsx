@@ -22,7 +22,7 @@ export interface DataTableApi {
 export function DataTable<T extends SimpleRow>({
   endpoint,
   columns,
-  getRowKey,
+  rowKey,
   initialPageSize = 10,
   pageSizeOptions = [10, 20, 50],
   emptyMessage = "No data to display.",
@@ -31,8 +31,8 @@ export function DataTable<T extends SimpleRow>({
   /** Spring `Page<T>` endpoint. Accepts `page` (0-based) & `size` query params. */
   endpoint: string
   columns: SimpleColumn<T>[]
-  /** Stable key per row. Falls back to the row index. */
-  getRowKey?: (row: T, index: number) => string | number
+  /** Row property containing a stable unique key. Falls back to the row index. */
+  rowKey?: keyof T & string
   initialPageSize?: number
   pageSizeOptions?: number[]
   emptyMessage?: string
@@ -91,7 +91,7 @@ export function DataTable<T extends SimpleRow>({
       columns={allColumns}
       data={rows}
       isLoading={isLoading}
-      getRowKey={getRowKey}
+      rowKey={rowKey}
       emptyMessage={emptyMessage}
       footer={
         <TablePagination
